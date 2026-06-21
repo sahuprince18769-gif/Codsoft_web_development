@@ -1,0 +1,246 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Quiz Maker</title>
+    <style>
+        * { box-sizing: border-box; font-family: sans-serif; }
+        body { background: #f0f2f5; padding: 15px; margin: 0; }
+        .card { background: white; padding: 20px; border-radius: 10px; max-width: 500px; margin: 0 auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1, h2 { text-align: center; color: #1a73e8; margin-top: 0; }
+        button { width: 100%; padding: 12px; margin: 8px 0; border: none; border-radius: 5px; font-weight: bold; font-size: 16px; cursor: pointer; }
+        .btn-blue { background: #1a73e8; color: white; }
+        .btn-green { background: #34a853; color: white; }
+        .btn-red { background: #ea4335; color: white; }
+        .btn-gray { background: #70757a; color: white; }
+        .hidden { display: none; }
+        .input-group { margin-bottom: 12px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; color: #3c4043; }
+        input[type="text"], select { width: 100%; padding: 10px; border: 1px solid #dadce0; border-radius: 5px; font-size: 15px; }
+        .quiz-item { background: #f8f9fa; padding: 12px; margin: 8px 0; border-left: 4px solid #1a73e8; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
+        .quiz-item button { width: auto; padding: 6px 12px; margin: 0; font-size: 14px; }
+        .option-click { background: #f1f3f4; padding: 12px; margin: 8px 0; border-radius: 6px; cursor: pointer; border: 2px solid transparent; }
+        .option-click:active, .selected { background: #e8f0fe; border-color: #1a73e8; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h1>📝 Mobile Quiz Maker</h1>
+    
+    <button class="btn-red" onclick="resetApp()" style="padding: 6px; font-size: 12px;">Reset Storage & Clear Errors</button>
+    <hr style="border: 0; border-top: 1px solid #dadce0; margin: 15px 0;">
+
+    <div id="view-home">
+        <h2>Available Quizzes</h2>
+        <button class="btn-green" onclick="goCreate()">➕ Create a New Quiz</button>
+        <div id="quiz-list" style="margin-top: 15px;"></div>
+    </div>
+
+    <div id="view-create" class="hidden">
+        <h2>Create Quiz</h2>
+        <div class="input-group">
+            <label>Quiz Title</label>
+            <input type="text" id="title-input" placeholder="e.g., HTML Basics">
+        </div>
+        
+        <div style="background: #f8f9fa; padding: 12px; border-radius: 6px; margin: 15px 0; border: 1px solid #dadce0;">
+            <label style="color:#1a73e8;">Question Prompt</label>
+            <input type="text" id="q-input" placeholder="What does CPU stand for?">
+            
+            <label style="margin-top: 10px;">Options</label>
+            <input type="text" id="opt0" placeholder="Option 1" style="margin-bottom: 5px;">
+            <input type="text" id="opt1" placeholder="Option 2" style="margin-bottom: 5px;">
+            <input type="text" id="opt2" placeholder="Option 3" style="margin-bottom: 5px;">
+            <input type="text" id="opt3" placeholder="Option 4" style="margin-bottom: 10px;">
+            
+            <label>Correct Option Number</label>
+            <select id="correct-select">
+                <option value="0">Option 1 is correct</option>
+                <option value="1">Option 2 is correct</option>
+                <option value="2">Option 3 is correct</option>
+                <option value="3">Option 4 is correct</option>
+            </select>
+        </div>
+
+        <button class="btn-blue" onclick="saveQuiz()">💾 Save Quiz</button>
+        <button class="btn-gray" onclick="goHome()">Back to Home</button>
+    </div>
+
+    <div id="view-play" class="hidden">
+        <h2 id="play-title">Quiz</h2>
+        <h3 id="play-question-num" style="color: #70757a; font-size: 15px;"></h3>
+        <p id="play-question-text" style="font-size: 18px; font-weight: bold; margin-bottom: 15px;"></p>
+        
+        <div id="options-box"></div>
+        
+        <button class="btn-blue" id="next-btn" onclick="nextQuestion()" style="margin-top: 20px;">Next Question ➡️</button>
+    </div>
+
+    <div id="view-results" class="hidden">
+        <h2>🎉 Quiz Finished!</h2>
+        <div id="result-text" style="font-size: 24px; text-align: center; margin: 20px 0; font-weight: bold; color: #34a853;"></div>
+        <button class="btn-blue" onclick="goHome()">Return to Dashboard</button>
+    </div>
+</div>
+
+<script>
+    // Safe fallback sample quiz
+    const sampleData = [{
+        id: "sample-1",
+        title: "General Knowledge Demo",
+        questions: [{
+            text: "What is the capital of France?",
+            opts: ["Berlin", "London", "Paris", "Madrid"],
+            correct: 2
+        }]
+    }];
+
+    let quizzes = [];
+    let activeQuiz = null;
+    let activeIndex = 0;
+    let score = 0;
+    let chosenAnswer = null;
+
+    // Run automatically when page starts
+    window.onload = function() {
+        let stored = localStorage.getItem("mobile_quiz_db");
+        if (!stored) {
+            localStorage.setItem("mobile_quiz_db", JSON.stringify(sampleData));
+            quizzes = sampleData;
+        } else {
+            quizzes = JSON.parse(stored);
+        }
+        renderHomeList();
+    };
+
+    function renderHomeList() {
+        let listDiv = document.getElementById("quiz-list");
+        if(quizzes.length === 0) {
+            listDiv.innerHTML = "<p style='text-align:center; color:#70757a;'>No quizzes available.</p>";
+            return;
+        }
+        
+        listDiv.innerHTML = quizzes.map(q => `
+            <div class="quiz-item">
+                <span><strong>${q.title}</strong> (${q.questions.length} Q)</span>
+                <button class="btn-blue" onclick="startQuiz('${q.id}')">Start</button>
+            </div>
+        `).join('');
+    }
+
+    function changeView(viewId) {
+        document.getElementById("view-home").classList.add("hidden");
+        document.getElementById("view-create").classList.add("hidden");
+        document.getElementById("view-play").classList.add("hidden");
+        document.getElementById("view-results").classList.add("hidden");
+        document.getElementById(viewId).classList.remove("hidden");
+    }
+
+    function goCreate() { changeView("view-create"); }
+    function goHome() { renderHomeList(); changeView("view-home"); }
+
+    function saveQuiz() {
+        let title = document.getElementById("title-input").value.trim();
+        let qText = document.getElementById("q-input").value.trim();
+        let o0 = document.getElementById("opt0").value.trim();
+        let o1 = document.getElementById("opt1").value.trim();
+        let o2 = document.getElementById("opt2").value.trim();
+        let o3 = document.getElementById("opt3").value.trim();
+        let correctVal = parseInt(document.getElementById("correct-select").value);
+
+        if(!title || !qText || !o0 || !o1 || !o2 || !o3) {
+            alert("Please fill in every text block before saving!");
+            return;
+        }
+
+        let newQuiz = {
+            id: "q-" + Date.now(),
+            title: title,
+            questions: [{
+                text: qText,
+                opts: [o0, o1, o2, o3],
+                correct: correctVal
+            }]
+        };
+
+        quizzes.push(newQuiz);
+        localStorage.setItem("mobile_quiz_db", JSON.stringify(quizzes));
+        
+        // Clear fields
+        document.getElementById("title-input").value = "";
+        document.getElementById("q-input").value = "";
+        document.getElementById("opt0").value = "";
+        document.getElementById("opt1").value = "";
+        document.getElementById("opt2").value = "";
+        document.getElementById("opt3").value = "";
+
+        alert("Quiz Saved successfully!");
+        goHome();
+    }
+
+    function startQuiz(id) {
+        activeQuiz = quizzes.find(q => q.id === id);
+        activeIndex = 0;
+        score = 0;
+        document.getElementById("play-title").innerText = activeQuiz.title;
+        changeView("view-play");
+        showQuestion();
+    }
+
+    function showQuestion() {
+        chosenAnswer = null;
+        let currentQ = activeQuiz.questions[activeIndex];
+        document.getElementById("play-question-num").innerText = `Question ${activeIndex + 1} of ${activeQuiz.questions.length}`;
+        document.getElementById("play-question-text").innerText = currentQ.text;
+
+        let optionsBox = document.getElementById("options-box");
+        optionsBox.innerHTML = currentQ.opts.map((opt, i) => `
+            <div class="option-click" id="opt-block-${i}" onclick="selectOpt(${i})">${opt}</div>
+        `).join('');
+
+        let nextBtn = document.getElementById("next-btn");
+        if (activeIndex === activeQuiz.questions.length - 1) {
+            nextBtn.innerText = "Finish Quiz 🏁";
+        } else {
+            nextBtn.innerText = "Next Question ➡️";
+        }
+    }
+
+    function selectOpt(index) {
+        chosenAnswer = index;
+        // Visual indicator update
+        for(let i=0; i<4; i++) {
+            let el = document.getElementById(`opt-block-${i}`);
+            if(el) el.classList.remove("selected");
+        }
+        document.getElementById(`opt-block-${index}`).classList.add("selected");
+    }
+
+    function nextQuestion() {
+        if(chosenAnswer === null) {
+            alert("Please select an answer first!");
+            return;
+        }
+
+        if(chosenAnswer === activeQuiz.questions[activeIndex].correct) {
+            score++;
+        }
+
+        activeIndex++;
+        if(activeIndex < activeQuiz.questions.length) {
+            showQuestion();
+        } else {
+            document.getElementById("result-text").innerText = `Your Score: ${score} / ${activeQuiz.questions.length}`;
+            changeView("view-results");
+        }
+    }
+
+    function resetApp() {
+        localStorage.clear();
+        location.reload();
+    }
+</script>
+</body>
+  </html>
