@@ -1,0 +1,269 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Job Board</title>
+    <style>
+        * { box-sizing: border-box; font-family: sans-serif; }
+        body { background: #f0f2f5; padding: 15px; margin: 0; }
+        .card { background: white; padding: 20px; border-radius: 10px; max-width: 500px; margin: 0 auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1, h2 { text-align: center; color: #1a73e8; margin-top: 0; }
+        
+        /* Navigation Tabs */
+        .tabs { display: flex; gap: 5px; margin-bottom: 15px; }
+        .tab-btn { flex: 1; padding: 10px; background: #e8f0fe; color: #1a73e8; border: none; font-weight: bold; border-radius: 5px; cursor: pointer; font-size: 13px; }
+        .tab-btn.active { background: #1a73e8; color: white; }
+        
+        button.action-btn { width: 100%; padding: 12px; margin: 8px 0; border: none; border-radius: 5px; font-weight: bold; font-size: 16px; cursor: pointer; }
+        .btn-blue { background: #1a73e8; color: white; }
+        .btn-green { background: #34a853; color: white; }
+        .btn-red { background: #ea4335; color: white; }
+        .btn-gray { background: #70757a; color: white; }
+        
+        .hidden { display: none; }
+        .input-group { margin-bottom: 12px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; color: #3c4043; }
+        input[type="text"], textarea { width: 100%; padding: 10px; border: 1px solid #dadce0; border-radius: 5px; font-size: 15px; }
+        
+        /* Job Listings */
+        .job-item { background: #f8f9fa; padding: 15px; margin: 10px 0; border-left: 4px solid #1a73e8; border-radius: 4px; }
+        .job-title { font-size: 18px; font-weight: bold; color: #1e40af; margin-bottom: 4px; }
+        .job-company { font-weight: bold; color: #475569; font-size: 14px; }
+        .job-loc { font-size: 12px; color: #64748b; margin-bottom: 8px; }
+        .job-item button { width: auto; padding: 6px 12px; font-size: 13px; background: #0ea5e9; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        
+        /* Application Cards */
+        .app-item { background: #f0fdf4; padding: 12px; margin: 8px 0; border-left: 4px solid #34a853; border-radius: 4px; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h1>💼 Mobile Job Board</h1>
+    
+    <button class="btn-red" onclick="resetApp()" style="padding: 5px; font-size: 11px; width: auto; margin: 0 auto 10px auto; display: block; border-radius: 4px;">Reset Storage & Clear Errors</button>
+    
+    <div class="tabs">
+        <button id="tab-btn-find" class="tab-btn active" onclick="switchTab('find')">🔍 Find Jobs</button>
+        <button id="tab-btn-post" class="tab-btn" onclick="switchTab('post')">🏢 Post a Job</button>
+        <button id="tab-btn-apps" class="tab-btn" onclick="switchTab('apps')">👤 My Apps</button>
+    </div>
+
+    <div id="view-find">
+        <h2>Available Openings</h2>
+        <input type="text" id="search-bar" placeholder="Search by title or company..." onkeyup="searchJobs()" style="width: 100%; padding: 10px; border: 1px solid #dadce0; border-radius: 5px; margin-bottom: 10px;">
+        <div id="job-list"></div>
+    </div>
+
+    <div id="view-post" class="hidden">
+        <h2>Post a New Job</h2>
+        <div class="input-group">
+            <label>Job Title</label>
+            <input type="text" id="job-title-input" placeholder="e.g., Frontend Developer">
+        </div>
+        <div class="input-group">
+            <label>Company Name</label>
+            <input type="text" id="job-company-input" placeholder="e.g., Tech Solutions">
+        </div>
+        <div class="input-group">
+            <label>Location</label>
+            <input type="text" id="job-loc-input" placeholder="e.g., Remote / New York">
+        </div>
+        <div class="input-group">
+            <label>Description</label>
+            <textarea id="job-desc-input" rows="4" placeholder="Describe the job role and skill requirements..."></textarea>
+        </div>
+        <button class="action-btn btn-green" onclick="saveJobListing()">Publish Job Listing 🚀</button>
+    </div>
+
+    <div id="view-apply" class="hidden">
+        <h2 id="apply-job-header">Apply to Position</h2>
+        <p id="apply-job-details" style="background: #f8f9fa; padding: 10px; border-radius: 5px; font-size: 14px; white-space: pre-line;"></p>
+        
+        <hr style="border: 0; border-top: 1px solid #dadce0; margin: 15px 0;">
+        
+        <div class="input-group">
+            <label>Your Full Name</label>
+            <input type="text" id="applicant-name" placeholder="Your Name">
+        </div>
+        <div class="input-group">
+            <label>Resume Link / Portfolio URL</label>
+            <input type="text" id="applicant-resume" placeholder="https://drive.google.com/yourresume">
+        </div>
+        <button class="action-btn btn-blue" onclick="submitApplication()">Submit Application 📄</button>
+        <button class="action-btn btn-gray" onclick="switchTab('find')">Cancel</button>
+    </div>
+
+    <div id="view-apps" class="hidden">
+        <h2>Your Sent Applications</h2>
+        <div id="apps-list"></div>
+    </div>
+</div>
+
+<script>
+    // Safe pre-loaded fallback data
+    const sampleJobs = [
+        {
+            id: "j-1",
+            title: "Web Developer Intern",
+            company: "AppStudio Inc.",
+            location: "Remote",
+            desc: "Looking for an enthusiast familiar with HTML, CSS, and basic JavaScript layouts to help maintain client websites."
+        }
+    ];
+
+    let jobsArray = [];
+    let appsArray = [];
+    let selectedJobForApply = null;
+
+    // Run automatically when mobile window spins up
+    window.onload = function() {
+        let storedJobs = localStorage.getItem("spck_board_jobs");
+        let storedApps = localStorage.getItem("spck_board_apps");
+
+        if (!storedJobs) {
+            localStorage.setItem("spck_board_jobs", JSON.stringify(sampleJobs));
+            jobsArray = sampleJobs;
+        } else {
+            jobsArray = JSON.parse(storedJobs);
+        }
+
+        appsArray = storedApps ? JSON.parse(storedApps) : [];
+        renderJobsList(jobsArray);
+    };
+
+    function switchTab(tabId) {
+        // Handle views visibility toggle
+        document.getElementById("view-find").classList.add("hidden");
+        document.getElementById("view-post").classList.add("hidden");
+        document.getElementById("view-apply").classList.add("hidden");
+        document.getElementById("view-apps").classList.add("hidden");
+        
+        document.getElementById(`view-${tabId}`).classList.remove("hidden");
+
+        // Handle Active Tabs Styles UI toggle
+        document.getElementById("tab-btn-find").classList.remove("active");
+        document.getElementById("tab-btn-post").classList.remove("active");
+        document.getElementById("tab-btn-apps").classList.remove("active");
+        
+        if (tabId !== 'apply') {
+            document.getElementById(`tab-btn-${tabId}`).classList.add("active");
+        }
+
+        if(tabId === 'find') renderJobsList(jobsArray);
+        if(tabId === 'apps') renderAppsList();
+    }
+
+    function renderJobsList(arr) {
+        let listDiv = document.getElementById("job-list");
+        if(arr.length === 0) {
+            listDiv.innerHTML = "<p style='text-align:center; color:#70757a;'>No jobs found.</p>";
+            return;
+        }
+
+        listDiv.innerHTML = arr.map(j => `
+            <div class="job-item">
+                <div class="job-title">${j.title}</div>
+                <div class="job-company">${j.company}</div>
+                <div class="job-loc">📍 ${j.location}</div>
+                <button onclick="goToApplyPage('${j.id}')">View & Apply</button>
+            </div>
+        `).join('');
+    }
+
+    function searchJobs() {
+        let query = document.getElementById("search-bar").value.toLowerCase().trim();
+        let filtered = jobsArray.filter(j => 
+            j.title.toLowerCase().includes(query) || 
+            j.company.toLowerCase().includes(query)
+        );
+        renderJobsList(filtered);
+    }
+
+    function saveJobListing() {
+        let title = document.getElementById("job-title-input").value.trim();
+        let company = document.getElementById("job-company-input").value.trim();
+        let location = document.getElementById("job-loc-input").value.trim();
+        let desc = document.getElementById("job-desc-input").value.trim();
+
+        if(!title || !company || !location || !desc) {
+            alert("Please fill in all inputs to post this job!");
+            return;
+        }
+
+        let newJob = { id: "j-" + Date.now(), title, company, location, desc };
+        jobsArray.push(newJob);
+        localStorage.setItem("spck_board_jobs", JSON.stringify(jobsArray));
+
+        // Reset Inputs
+        document.getElementById("job-title-input").value = "";
+        document.getElementById("job-company-input").value = "";
+        document.getElementById("job-loc-input").value = "";
+        document.getElementById("job-desc-input").value = "";
+
+        alert("Job Listing Published Successfully!");
+        switchTab('find');
+    }
+
+    function goToApplyPage(id) {
+        selectedJobForApply = jobsArray.find(j => j.id === id);
+        
+        document.getElementById("apply-job-header").innerText = `Apply to ${selectedJobForApply.company}`;
+        document.getElementById("apply-job-details").innerText = `Role: ${selectedJobForApply.title}\nLocation: ${selectedJobForApply.location}\n\nDescription:\n${selectedJobForApply.desc}`;
+        
+        // Clear Application Form
+        document.getElementById("applicant-name").value = "";
+        document.getElementById("applicant-resume").value = "";
+
+        switchTab('apply');
+    }
+
+    function submitApplication() {
+        let name = document.getElementById("applicant-name").value.trim();
+        let resume = document.getElementById("applicant-resume").value.trim();
+
+        if(!name || !resume) {
+            alert("Please enter both your name and a resume link!");
+            return;
+        }
+
+        let newApp = {
+            id: "app-" + Date.now(),
+            role: selectedJobForApply.title,
+            company: selectedJobForApply.company,
+            name: name,
+            resume: resume
+        };
+
+        appsArray.push(newApp);
+        localStorage.setItem("spck_board_apps", JSON.stringify(appsArray));
+
+        alert("Application Submitted Successfully!");
+        switchTab('apps');
+    }
+
+    function renderAppsList() {
+        let listDiv = document.getElementById("apps-list");
+        if(appsArray.length === 0) {
+            listDiv.innerHTML = "<p style='text-align:center; color:#70757a;'>You haven't applied to any positions yet.</p>";
+            return;
+        }
+
+        listDiv.innerHTML = appsArray.map(a => `
+            <div class="app-item">
+                <strong>Position:</strong> ${a.role}<br>
+                <strong>Company:</strong> ${a.company}<br>
+                <strong>Applicant:</strong> ${a.name}<br>
+                <strong>Resume Link:</strong> <span style="color:#1a73e8; text-decoration: underline;">${a.resume}</span>
+            </div>
+        `).join('');
+    }
+
+    function resetApp() {
+        localStorage.clear();
+        location.reload();
+    }
+</script>
+</body>
+  </html>
